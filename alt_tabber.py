@@ -21,10 +21,13 @@ class ApplicationController(object):
                 self.yaml_config = []
         except FileNotFoundError:
             open(self.yaml_path, 'a').close()
-            # os.mknod(self.yaml_path)
             self.yaml_config = []
         except yaml.YAMLError:
             print("Something's wrong with the YAML... remaking.")
+        for job in self.yaml_config:
+            self.thread_scheduler.add_job(lambda: self._check_for_processes(list(job.keys())[0]),
+                                          id=list(job.keys())[0], trigger=IntervalTrigger(minutes=list(job.values())[0]))
+        print("Initialized jobs.")
 
     def _find_config_home(self):
         platform = sys.platform
@@ -37,6 +40,11 @@ class ApplicationController(object):
         else:
             print("Unknown OS. Only Windows, Mac, and Linux are supported.")
             return None
+
+    def _save_config(self):
+        with open(self.yaml_path, 'w') as yp:
+            yaml.dump(self.yaml_config, yp)
+        print("Saved config.")
 
     def _update_processes(self):
         self.current_processes.delete(0,'end')
@@ -61,41 +69,20 @@ class ApplicationController(object):
         else:
             self.thread_scheduler.add_job(lambda: self._check_for_processes(procname), id=procname, trigger=IntervalTrigger(minutes=interval))
             self.yaml_config.append({procname: interval})
-            with open(self.yaml_path, 'w') as yp:
-                yaml.dump(self.yaml_config, yp)
-            print("Saved config.")
+            self._save_config()
 
         self._update_processes()
 
     def _delete_proc_cursor(self, selected):
-        # print(self.thread_scheduler.get_jobs())
+        procname = self.current_processes.get(selected[0])[:-3].strip()
+        interval = int(self.current_processes.get(selected[0])[-3:])
+        for i,x in enumerate(self.yaml_config):
+            if procname == list(x.keys())[0] and interval == list(x.values())[0]:
+                del self.yaml_config[i]
+        self._save_config()
 
-        # temp = self.current_processes.get(self.current_processes.curselection())
-        # print(temp)
-        # strpi = temp.index(" ")
-        # print(strpi)
-        # strp = temp[:strpi]
-        # intpi = temp.rindex(" ") - 2
-        # intp = temp[intpi:]
-        # print("intpi: " + str(intpi))
-        # theObj = { strp: int(intp) }
-        # print(theObj)
-        # print(list(theObj.keys())[0])
-        print(self.current_processes.get(selected[0]))
+        self.thread_scheduler.remove_job(self.current_processes.get(selected[0])[:-3].strip())
         self.current_processes.delete(selected[0])
-        print(self.current_processes.get(selected[0]))
-        # self.thread_scheduler.remove_job(selected[0])
-        # for i,procname in enumerate(self.yaml_config):
-
-        #     print (i)
-        #     print("was i")
-        #     print (procname)
-        #     print ("was proc")
-        #     print(list(theObj.keys())[0])
-        #     print(list(procname.keys())[0])
-        #     print(list(theObj.keys())[0] == list(procname.keys())[0])
-        #     if list(theObj.keys())[0] == list(procname.keys())[0]:
-        #         self.thread_scheduler.remove_job(i)
         self._update_processes()
 
 
@@ -108,7 +95,10 @@ class ApplicationController(object):
             self.alt_tab()
 
     def alt_tab(self):
-        pyautogui.hotkey('alt', 'tab')
+        if "mac" in sys.platform:
+            pyautogui.hotkey('command', 'tab')
+        else:
+            pyautogui.hotkey('alt', 'tab')
 
     def _init_gui(self):
         oriR = 1
@@ -116,8 +106,8 @@ class ApplicationController(object):
 
         # Create the root window
         root = tk.Tk()
-        root.geometry("1000x800")
-        root.title("Alt Tab")
+        root.geometry("500x400")
+        root.title("Pro Gamer Switcher")
 
         menu = tk.Menu(root)
         root.config(menu = menu)
@@ -140,16 +130,14 @@ class ApplicationController(object):
             raise
         self.current_processes.grid(row=oriR+2, column=oriC)
 
-        add_label = tk.Label(root, text="Add process")
-        add_label.grid(row=oriR, column=oriC)
-        name_desc = tk.Label(root, text="Process name:")
+        name_desc = tk.Label(root, text="Process:")
         name_desc.grid(row=oriR+1, column=oriC)
-        name_entry = tk.Entry(root)
+        name_entry = tk.Entry(root, width=10)
         name_entry.grid(row=oriR+1, column=oriC+1)
-        interval_desc = tk.Label(root, text="Interval time:")
-        interval_desc.grid(row=oriR+1, column=oriC+4)
-        interval_entry = tk.Entry(root)
-        interval_entry.grid(row=oriR+1, column=oriC+5)
+        interval_desc = tk.Label(root, text="Interval (min):")
+        interval_desc.grid(row=oriR+1, column=oriC+5)
+        interval_entry = tk.Entry(root, width=3)
+        interval_entry.grid(row=oriR+1, column=oriC+6)
 
         add_btn = tk.Button(root, text="Add", command=lambda: self._add_proc(name_entry.get(),
                                                                        int(interval_entry.get())))
@@ -162,4 +150,3 @@ class ApplicationController(object):
 
 app = ApplicationController()
 app._init_gui()
-
