@@ -1,12 +1,23 @@
 #!/usr/bin/env python3
 
+import logging
 import os
 import sys
 import tkinter as tk
-import yaml
 
+import psutil
+
+import yaml
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.interval import IntervalTrigger
+
+log = logging.getLogger(__name__)
+
+logging.basicConfig(
+    level=logging.DEBUG,
+    format='[%(asctime)s] {%(filename)s:%(lineno)d} %(levelname)s - %(message)s',
+    filename='/home/yack/doc/pyt/alt_tabber/pgs.log'
+)
 
 class ApplicationController(object):
 
@@ -18,16 +29,20 @@ class ApplicationController(object):
         try:
             self.yaml_config = yaml.safe_load(open(self._find_config_home()))
             if self.yaml_config is None:
+                logging.getLogger(__name__).warning("YAML found but empty, remaking.")
                 self.yaml_config = []
+            else:
+                logging.getLogger(__name__).debug("YAML found and loaded.")
         except FileNotFoundError:
+            logging.getLogger(__name__).warning("No YAML found. Making a new one.")
             open(self.yaml_path, 'a').close()
             self.yaml_config = []
         except yaml.YAMLError:
-            print("Something's wrong with the YAML... remaking.")
+            logging.getLogger(__name__).warning("Something's wrong with the YAML... remaking.")
         for job in self.yaml_config:
             self.thread_scheduler.add_job(lambda: self._check_for_processes(list(job.keys())[0]),
                                           id=list(job.keys())[0], trigger=IntervalTrigger(minutes=list(job.values())[0]))
-        print("Initialized jobs.")
+        logging.getLogger(__name__).debug("Initialized jobs.")
 
     def _find_config_home(self):
         platform = sys.platform
@@ -149,4 +164,5 @@ class ApplicationController(object):
         root.mainloop()
 
 app = ApplicationController()
+app.thread_scheduler.start()
 app._init_gui()
