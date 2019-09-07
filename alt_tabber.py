@@ -20,7 +20,8 @@ class ApplicationController(object):
             if self.yaml_config is None:
                 self.yaml_config = []
         except FileNotFoundError:
-            os.mknod(self.yaml_path)
+            open(self.yaml_path, 'a').close()
+            # os.mknod(self.yaml_path)
             self.yaml_config = []
         except yaml.YAMLError:
             print("Something's wrong with the YAML... remaking.")
@@ -36,6 +37,17 @@ class ApplicationController(object):
         else:
             print("Unknown OS. Only Windows, Mac, and Linux are supported.")
             return None
+
+    def _update_processes(self):
+        self.current_processes.delete(0,'end')
+        try:
+            proc_to_add = [str(["{:<20}  {:<3}".format(p,i) for p,i in proc.items()]) for proc in self.yaml_config]
+            for i,proc in enumerate(self.yaml_config):
+                self.current_processes.insert(i, "{:<15} {:<3}".format(list(proc.keys())[0],list(proc.values())[0]))
+        except AttributeError:
+            raise
+        self.current_processes.grid(row=3, column=0)
+        
 
     def _add_proc(self, procname, interval):
         # IDs for the current jobs are equal to the procname
@@ -53,10 +65,38 @@ class ApplicationController(object):
                 yaml.dump(self.yaml_config, yp)
             print("Saved config.")
 
-    def _delete_proc(self, selected):
-        for i,procname in enumerate(self.yaml_config):
-            if selected[i] == 1:
-                self.thread_scheduler.remove_job(procname)
+        self._update_processes()
+
+    def _delete_proc_cursor(self, selected):
+        # print(self.thread_scheduler.get_jobs())
+
+        # temp = self.current_processes.get(self.current_processes.curselection())
+        # print(temp)
+        # strpi = temp.index(" ")
+        # print(strpi)
+        # strp = temp[:strpi]
+        # intpi = temp.rindex(" ") - 2
+        # intp = temp[intpi:]
+        # print("intpi: " + str(intpi))
+        # theObj = { strp: int(intp) }
+        # print(theObj)
+        # print(list(theObj.keys())[0])
+        print(self.current_processes.get(selected[0]))
+        self.current_processes.delete(selected[0])
+        print(self.current_processes.get(selected[0]))
+        # self.thread_scheduler.remove_job(selected[0])
+        # for i,procname in enumerate(self.yaml_config):
+
+        #     print (i)
+        #     print("was i")
+        #     print (procname)
+        #     print ("was proc")
+        #     print(list(theObj.keys())[0])
+        #     print(list(procname.keys())[0])
+        #     print(list(theObj.keys())[0] == list(procname.keys())[0])
+        #     if list(theObj.keys())[0] == list(procname.keys())[0]:
+        #         self.thread_scheduler.remove_job(i)
+        self._update_processes()
 
 
     def _check_for_processes(self, procname):
@@ -91,14 +131,14 @@ class ApplicationController(object):
         menu.add_cascade(label='Help', menu=helpmenu)
         helpmenu.add_command(label='About')
 
-        current_processes = tk.Listbox(root)
+        self.current_processes = tk.Listbox(root)
         try:
             proc_to_add = [str(["{:<20}  {:<3}".format(p,i) for p,i in proc.items()]) for proc in self.yaml_config]
             for i,proc in enumerate(self.yaml_config):
-                current_processes.insert(i, "{:<15} {:<3}".format(list(proc.keys())[0],list(proc.values())[0]))
+                self.current_processes.insert(i, "{:<15} {:<3}".format(list(proc.keys())[0],list(proc.values())[0]))
         except AttributeError:
             raise
-        current_processes.grid(row=oriR+2, column=oriC)
+        self.current_processes.grid(row=oriR+2, column=oriC)
 
         add_label = tk.Label(root, text="Add process")
         add_label.grid(row=oriR, column=oriC)
@@ -115,10 +155,11 @@ class ApplicationController(object):
                                                                        int(interval_entry.get())))
         add_btn.grid(row=oriR+1, column=oriC+7)
         del_btn = tk.Button(root, text="Delete", command=lambda:
-                            self._delete_proc_cursor(current_processes.curselection()))
+                            self._delete_proc_cursor(self.current_processes.curselection()))
         del_btn.grid(row=oriR+2, column=oriC+7)
 
         root.mainloop()
 
 app = ApplicationController()
 app._init_gui()
+
